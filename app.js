@@ -448,13 +448,48 @@ function handleSavePDF(optionalData = null) {
         doc.text("Verified by:", 40, finalY);
 
         const fname = `${s.empName.replace(/\s/g, '_')}_${MONTH_NAMES[s.month]}_Timesheet.pdf`;
-        doc.save(fname);
 
-        if (btn && !isDirect) {
-            btn.innerHTML = oldText;
-            btn.disabled = false;
+        // --- SHARE LOGIC ---
+        // Generate Blob
+        const blob = doc.output('blob');
+        const file = new File([blob], fname, { type: 'application/pdf' });
+
+        // Check for Web Share API support
+        if (navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+                files: [file],
+                title: 'Monthly Timesheet',
+                text: `Here is the timesheet for ${MONTH_NAMES[s.month]} ${s.year}.`,
+            })
+                .then(() => {
+                    if (!isDirect) showMessage('Success', 'PDF Shared & Data Stored!', 'success');
+                })
+                .catch((error) => {
+                    console.log('Sharing failed or cancelled', error);
+                    // Fallback to simpler save on simple cancellation or error
+                    if (error.name !== 'AbortError') {
+                        doc.save(fname);
+                        if (!isDirect) showMessage('Saved', 'Sharing failed, PDF downloaded instead.', 'success');
+                    } else {
+                        // Even if cancelled, we saved data to history already.
+                        if (!isDirect) showMessage('Success', 'Data Stored (Share Cancelled).', 'success');
+                    }
+                })
+                .finally(() => {
+                    if (btn && !isDirect) {
+                        btn.innerHTML = oldText;
+                        btn.disabled = false;
+                    }
+                });
+        } else {
+            // Fallback for Desktop / No Share Support
+            doc.save(fname);
+            if (btn && !isDirect) {
+                btn.innerHTML = oldText;
+                btn.disabled = false;
+            }
+            if (!isDirect) showMessage('Success', 'PDF Saved & Data Stored!', 'success');
         }
-        if (!isDirect) showMessage('Success', 'PDF Saved & Data Stored!', 'success');
 
     } catch (e) {
         console.error(e);
