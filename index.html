@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Employee Attendance</title>
+
+    <link rel="stylesheet" href="style.css?v=3.0.60">
+    <link rel="manifest" href="manifest.json">
+
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Attendance">
+    <link rel="apple-touch-icon" href="icon-192.png">
+    <meta name="theme-color" content="#1d4ed8">
+
+    <script src="https://unpkg.com/lucide@latest"></script>
+</head>
+
+<body>
+
+    <div class="app-container">
+        <div id="ptr-indicator" class="ptr-indicator">
+            <i data-lucide="rotate-ccw"></i>
+            <span>Pull to Reset</span>
+        </div>
+
+        <header class="app-header">
+            <h1>Attendance</h1>
+            <button id="themeToggle" class="theme-btn"><i data-lucide="moon"></i></button>
+        </header>
+
+        <nav class="tab-nav">
+            <button class="tab-btn active" data-tab="attendance">
+                <i data-lucide="clipboard-list"></i><span>Attendance</span>
+            </button>
+            <button class="tab-btn" data-tab="data">
+                <i data-lucide="database"></i><span>Data</span>
+            </button>
+            <button class="tab-btn" data-tab="settings">
+                <i data-lucide="settings"></i><span>Settings</span>
+            </button>
+            <button class="tab-btn" data-tab="about">
+                <i data-lucide="info"></i><span>About</span>
+            </button>
+        </nav>
+
+        <main id="main-content">
+            <section id="attendance" class="tab-pane active">
+                <div style="padding: 1rem;">
+                    <h2>Employee Attendance</h2>
+                </div>
+
+                <div class="card form-card">
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>Employee Name</label>
+                            <input type="text" id="empName" placeholder="Enter Name">
+                        </div>
+                        <div class="form-group">
+                            <label>Civil ID No.</label>
+                            <input type="text" id="civilId" placeholder="Enter the No." maxlength="12"
+                                inputmode="numeric" pattern="\d*">
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>Retailer</label>
+                            <div id="retailerSelect" class="select-box" onclick="openHeaderPicker('retailer')">
+                                <span id="retailerText">Select Retailer</span><i data-lucide="chevron-down"
+                                    class="select-icon"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Location</label>
+                            <div id="locationSelect" class="select-box" onclick="openHeaderPicker('location')">
+                                <span id="locationText">Select Location</span><i data-lucide="chevron-down"
+                                    class="select-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>Department</label>
+                            <div id="deptSelect" class="select-box" onclick="openHeaderPicker('department')">
+                                <span id="deptText">Select Department</span><i data-lucide="chevron-down"
+                                    class="select-icon"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Designation</label>
+                            <div id="desigSelect" class="select-box" onclick="openHeaderPicker('designation')">
+                                <span id="desigText">Select Designation</span><i data-lucide="chevron-down"
+                                    class="select-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="form-group-row">
+                        <div class="form-group">
+                            <label>Month</label>
+                            <div id="monthSelect" class="select-box" onclick="openHeaderPicker('month')">
+                                <span id="monthText">Select Month</span><i data-lucide="chevron-down"
+                                    class="select-icon"></i>
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Year</label>
+                            <div id="yearSelect" class="select-box" onclick="openHeaderPicker('year')">
+                                <span id="yearText">Select Year</span><i data-lucide="chevron-down"
+                                    class="select-icon"></i>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="attendance-table-header">
+                    <span>Day</span><span>Login</span><span>Logout</span><span>Remarks</span>
+                </div>
+
+                <div id="attendance-list" class="attendance-list">
+                    <div class="empty-state" style="padding: 2rem; text-align: center; color: #999;">Loading...</div>
+                </div>
+
+                <div class="action-bar box-shadow-top">
+                    <!-- Swapped Print/Save Buttons and Reduced Height (v3.0.11) -->
+                    <button id="printBtn" class="btn btn-secondary"><i data-lucide="printer"></i> Print</button>
+                    <button id="clearBtn" class="btn btn-outline"><i data-lucide="rotate-ccw"></i> Clear</button>
+                    <button id="saveBtn" class="btn btn-primary"><i data-lucide="save"></i> Save PDF</button>
+                </div>
+            </section>
+
+            <section id="data" class="tab-pane">
+                <div style="padding: 1rem;">
+                    <div class="data-header"
+                        style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                        <h2>Saved Data</h2>
+                        <button id="clearAllDataBtn" class="delete-btn"
+                            style="color: #ef4444; font-size: 0.9rem; padding: 0.5rem;"><i data-lucide="trash-2"></i>
+                            Clear All</button>
+                    </div>
+                    <div id="data-list-container" class="list-container" style="max-height: none; overflow: visible;">
+                        <!-- Data Items Rendered Here -->
+                        <div class="empty-state" style="text-align: center; color: var(--text-muted); padding: 2rem;">No
+                            saved records found.</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Preview Modal -->
+            <div id="preview-modal" class="picker-overlay hidden" style="z-index: 2500;">
+                <div class="picker-card"
+                    style="height: 90vh; max-height: 90vh !important; width: 95% !important; max-width: 600px !important; padding: 0 !important;">
+                    <div class="picker-header" style="padding: 1rem; margin-bottom: 0;">
+                        <h3>Edit Entry</h3>
+                        <button id="closePreviewBtn" class="btn-icon-sm"><i data-lucide="x"></i></button>
+                    </div>
+                    <div id="preview-body" class="picker-body" style="padding: 1rem 0; padding-bottom: 80px;">
+                        <!-- Dynamic Content of Preview -->
+                    </div>
+                    <div class="action-bar"
+                        style="position: absolute; bottom: 0; padding-bottom: 1rem; background: var(--bg-card);">
+                        <button id="previewSaveBtn" class="btn btn-primary"><i data-lucide="save"></i> Save
+                            Changes</button>
+                    </div>
+                </div>
+            </div>
+
+            <section id="settings" class="tab-pane">
+                <div style="padding: 1rem;">
+                    <h2>Settings</h2>
+                </div>
+                <div class="settings-grid">
+                    <div class="card settings-card">
+                        <h3>Retailers</h3>
+                        <div class="input-with-btn">
+                            <input type="text" id="newRetailer" placeholder="New Retailer">
+                            <button id="addRetailerBtn" class="btn-icon"><i data-lucide="plus"></i></button>
+                        </div>
+                        <div class="list-container">
+                            <ul id="retailerList" class="settings-list"></ul>
+                        </div>
+                    </div>
+                    <div class="card settings-card">
+                        <h3>Locations</h3>
+                        <div class="input-with-btn">
+                            <input type="text" id="newLocation" placeholder="New Location">
+                            <button id="addLocationBtn" class="btn-icon"><i data-lucide="plus"></i></button>
+                        </div>
+                        <div class="list-container">
+                            <ul id="locationList" class="settings-list"></ul>
+                        </div>
+                    </div>
+                    <div class="card settings-card">
+                        <h3>Departments</h3>
+                        <div class="input-with-btn">
+                            <input type="text" id="newDept" placeholder="New Department">
+                            <button id="addDeptBtn" class="btn-icon"><i data-lucide="plus"></i></button>
+                        </div>
+                        <div class="list-container">
+                            <ul id="deptList" class="settings-list"></ul>
+                        </div>
+                    </div>
+                    <div class="card settings-card">
+                        <h3>Designations</h3>
+                        <div class="input-with-btn">
+                            <input type="text" id="newDesig" placeholder="New Designation">
+                            <button id="addDesigBtn" class="btn-icon"><i data-lucide="plus"></i></button>
+                        </div>
+                        <div class="list-container">
+                            <ul id="desigList" class="settings-list"></ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="about" class="tab-pane">
+                <div class="card about-card">
+                    <div class="about-header">
+                        <div class="logo-container"><i data-lucide="smartphone" class="app-logo-large"></i></div>
+                        <h2>Employee Attendance</h2><span class="version-badge">v3.0.0</span>
+                    </div>
+                    <div class="about-body">
+                        <p class="about-description">Professional daily staff attendance tracking and reporting.</p>
+                        <div class="about-info-list">
+                            <div class="info-item">
+                                <span class="icon-box"><i data-lucide="code-2"></i></span>
+                                <div class="info-text"><label>Developer</label><span>Subeesh</span></div>
+                            </div>
+                            <div class="info-item">
+                                <span class="icon-box"><i data-lucide="mail"></i></span>
+                                <div class="info-text"><label>Contact</label><a href="mailto:subeesh90@gmail.com"
+                                        class="link-text">subeesh90@gmail.com</a></div>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="about-footer">
+                        <p class="copyright">© 2026 Subeesh Apps. All rights reserved.</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <div id="picker-modal" class="picker-overlay hidden">
+        <div class="picker-card">
+            <div class="picker-header">
+                <h3 id="picker-title">Select Item</h3>
+                <button id="closePickerBtn" class="btn-icon-sm"><i data-lucide="x"></i></button>
+            </div>
+            <div class="picker-wrapper">
+                <div class="picker-highlight"></div>
+                <div id="picker-body" class="picker-body"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="message-modal" class="message-overlay hidden">
+        <div class="message-card">
+            <div class="message-icon" id="message-icon"><i data-lucide="info"></i></div>
+            <h3 id="message-title">Message</h3>
+            <p id="message-text">This is a message.</p>
+            <div class="message-buttons" id="message-buttons">
+                <button class="btn btn-primary" id="message-ok-btn">OK</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
+
+    <script src="app.js?v=3.0.60"></script>
+    </script>
+    </script>
+
+    <script>
+        if (window.lucide) lucide.createIcons();
+        if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);
+    </script>
+</body>
+
+</html>
