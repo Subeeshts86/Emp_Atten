@@ -104,8 +104,39 @@ function closeMessage() {
 // --- UI Logic ---
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+// Ramadan Dates (Approximate)
+const RAMADAN_DATES = {
+    2025: { start: '02-28', end: '03-30' },
+    2026: { start: '02-17', end: '03-19' },
+    2027: { start: '02-07', end: '03-08' },
+    2028: { start: '01-27', end: '02-25' },
+    2029: { start: '01-15', end: '02-13' },
+    2030: { start: '01-05', end: '02-03' }
+};
+
 function getDaysInMonth(year, month) {
     return new Date(year, parseInt(month) + 1, 0).getDate();
+}
+
+function isRamadan(dateObj) {
+    const y = dateObj.getFullYear();
+    const range = RAMADAN_DATES[y];
+    if (!range) return false;
+
+    // Create Date objects for range (at midnight)
+    // Date string format is MM-DD, so we append Year
+    const start = new Date(`${y}-${range.start}T00:00:00`);
+    const end = new Date(`${y}-${range.end}T23:59:59`);
+
+    // Check if dateObj falls within
+    return dateObj >= start && dateObj <= end;
+}
+
+function getDefaultTimes(dateObj) {
+    if (isRamadan(dateObj)) {
+        return { inHour: '07', inMin: '00', inAmPm: 'PM', outHour: '01', outMin: '00', outAmPm: 'AM' };
+    }
+    return { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM' };
 }
 
 function updateAllDropdowns() {
@@ -223,12 +254,14 @@ function openPicker(type, currentVal, callback) {
     // Remove old listener to avoid duplicates
     const newBtn = confirmBtn.cloneNode(true);
     confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
-
     newBtn.onclick = () => {
         callback(selectedValue);
         modal.classList.add('hidden');
         document.body.classList.remove('no-scroll');
     };
+
+    // Ensure icon is visible after clone
+    refreshIcons();
 
     if (currentVal) {
         setTimeout(() => {
@@ -285,7 +318,17 @@ function renderAttendanceGrid() {
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
         const isFri = dayName === 'Fri';
 
-        let d = s.attendance[dateKey] || { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM', remarks: '' };
+        // Defaults
+        // Normal: 01:00 PM - 10:00 PM
+        // Ramadan: 07:00 PM - 01:00 AM
+        let defInH = '01', defInAmPm = 'PM', defOutH = '10', defOutAmPm = 'PM';
+
+        if (isRamadan(dateObj)) {
+            defInH = '07';
+            defOutH = '01'; defOutAmPm = 'AM';
+        }
+
+        let d = s.attendance[dateKey] || { inHour: defInH, inMin: '00', inAmPm: defInAmPm, outHour: defOutH, outMin: '00', outAmPm: defOutAmPm, remarks: '' };
 
         if (!s.attendance[dateKey]) d = { ...d };
 
@@ -329,8 +372,17 @@ function updateAttendance(key, field, val) {
             d.outHour = ''; d.outMin = ''; d.outAmPm = '';
         } else {
             // Restore defaults if remark is cleared
-            d.inHour = '01'; d.inMin = '00'; d.inAmPm = 'PM';
-            d.outHour = '10'; d.outMin = '00'; d.outAmPm = 'PM';
+            // Check Ramadan again
+            const parts = key.split('-');
+            const dateObj = new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
+
+            if (isRamadan(dateObj)) {
+                d.inHour = '07'; d.inMin = '00'; d.inAmPm = 'PM';
+                d.outHour = '01'; d.outMin = '00'; d.outAmPm = 'AM';
+            } else {
+                d.inHour = '01'; d.inMin = '00'; d.inAmPm = 'PM';
+                d.outHour = '10'; d.outMin = '00'; d.outAmPm = 'PM';
+            }
         }
     }
 
@@ -496,9 +548,10 @@ function handleSavePDF(optionalData = null) {
         const tableBody = [];
         for (let i = 1; i <= days; i++) {
             const k = `${s.year}-${String(parseInt(s.month) + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-            // Use same defaults as renderAttendanceGrid
-            let d = s.attendance[k] || { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM', remarks: '' };
             const dateObj = new Date(s.year, s.month, i);
+            const defs = getDefaultTimes(dateObj);
+            // Use defaults if missing
+            let d = s.attendance[k] || { ...defs, remarks: '' };
             const dateStr = `${String(i).padStart(2, '0')}-${MONTH_NAMES[s.month].substr(0, 3)}-${s.year}`;
 
             let tIn = '';
@@ -636,9 +689,10 @@ function handlePrint() {
     let rows = '';
     for (let i = 1; i <= days; i++) {
         const k = `${s.year}-${String(parseInt(s.month) + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
-        // Use same defaults as renderAttendanceGrid
-        let d = s.attendance[k] || { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM', remarks: '' };
         const dateObj = new Date(s.year, s.month, i);
+        const defs = getDefaultTimes(dateObj);
+        // Use defaults if missing
+        let d = s.attendance[k] || { ...defs, remarks: '' };
         const dateStr = `${String(i).padStart(2, '0')}-${MONTH_NAMES[s.month].substr(0, 3)}-${s.year}`;
 
         let tIn = '';
@@ -1009,7 +1063,7 @@ function renderPreviewBody(container, data) {
             flex-shrink: 0;
             z-index: 10;
         ">
-            <span>Day</span><span>Login</span><span>Logout</span><span>Rem</span>
+            <span>Day</span><span>Login</span><span>Logout</span><span>Remarks</span>
         </div>
 
         <!-- Scrollable List -->
@@ -1035,7 +1089,8 @@ function renderPreviewBody(container, data) {
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
         const isFri = dayName === 'Fri';
 
-        let d = data.attendance[k] || { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM', remarks: '' };
+        const defs = getDefaultTimes(dateObj);
+        let d = data.attendance[k] || { ...defs, remarks: '' };
 
         gridHTML += `
             <div class="attendance-day ${isFri ? 'weekend' : ''}" style="
@@ -1051,12 +1106,12 @@ function renderPreviewBody(container, data) {
                 
                 <div class="time-group" style="width: 100%;">
                     <div class="select-box time-box${d.remarks ? ' disabled' : ''}" style="padding: 4px;" ${d.remarks ? '' : `onclick="openPreviewTime('${k}', 'inHour', 'inMin', '${d.inHour}', '${d.inMin}')"`}><span style="font-size:0.85rem;">${(d.inHour && d.inMin) ? d.inHour + ':' + d.inMin : '--:--'}</span></div>
-                    <div class="select-box ampm-box${d.remarks ? ' disabled' : ''}" style="flex: 0 0 24px; padding: 0;" ${d.remarks ? '' : `onclick="openPreviewSingle('${k}', 'inAmPm', 'ampm', '${d.inAmPm}')"`}><span style="font-size:0.7rem;">${d.inAmPm ? d.inAmPm.charAt(0) : '-'}</span></div>
+                    <div class="select-box ampm-box${d.remarks ? ' disabled' : ''}" style="flex: 0 0 38px; padding: 0;" ${d.remarks ? '' : `onclick="openPreviewSingle('${k}', 'inAmPm', 'ampm', '${d.inAmPm}')"`}><span style="font-size:0.7rem;">${d.inAmPm || '-'}</span></div>
                 </div>
 
                 <div class="time-group" style="width: 100%;">
                     <div class="select-box time-box${d.remarks ? ' disabled' : ''}" style="padding: 4px;" ${d.remarks ? '' : `onclick="openPreviewTime('${k}', 'outHour', 'outMin', '${d.outHour}', '${d.outMin}')"`}><span style="font-size:0.85rem;">${(d.outHour && d.outMin) ? d.outHour + ':' + d.outMin : '--:--'}</span></div>
-                    <div class="select-box ampm-box${d.remarks ? ' disabled' : ''}" style="flex: 0 0 24px; padding: 0;" ${d.remarks ? '' : `onclick="openPreviewSingle('${k}', 'outAmPm', 'ampm', '${d.outAmPm}')"`}><span style="font-size:0.7rem;">${d.outAmPm ? d.outAmPm.charAt(0) : '-'}</span></div>
+                    <div class="select-box ampm-box${d.remarks ? ' disabled' : ''}" style="flex: 0 0 38px; padding: 0;" ${d.remarks ? '' : `onclick="openPreviewSingle('${k}', 'outAmPm', 'ampm', '${d.outAmPm}')"`}><span style="font-size:0.7rem;">${d.outAmPm || '-'}</span></div>
                 </div>
 
                 <div class="select-box remark-select" style="min-width: 0; width: 100%; padding: 4px 8px;" onclick="openPreviewSingle('${k}', 'remarks', 'remarks', '${d.remarks}')">
@@ -1075,7 +1130,12 @@ function renderPreviewBody(container, data) {
 window.openPreviewSingle = (key, field, type, cur) => {
     // Re-use openPicker but intercept callback
     openPicker(type, cur, (val) => {
-        if (!previewState.attendance[key]) previewState.attendance[key] = { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM', remarks: '' };
+        // Derive date from key for defaults
+        const parts = key.split('-');
+        const dateObj = new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
+        const defs = getDefaultTimes(dateObj);
+
+        if (!previewState.attendance[key]) previewState.attendance[key] = { ...defs, remarks: '' };
 
         previewState.attendance[key][field] = val;
 
@@ -1085,8 +1145,8 @@ window.openPreviewSingle = (key, field, type, cur) => {
                 previewState.attendance[key].inHour = ''; previewState.attendance[key].inMin = ''; previewState.attendance[key].inAmPm = '';
                 previewState.attendance[key].outHour = ''; previewState.attendance[key].outMin = ''; previewState.attendance[key].outAmPm = '';
             } else {
-                previewState.attendance[key].inHour = '01'; previewState.attendance[key].inMin = '00'; previewState.attendance[key].inAmPm = 'PM';
-                previewState.attendance[key].outHour = '10'; previewState.attendance[key].outMin = '00'; previewState.attendance[key].outAmPm = 'PM';
+                previewState.attendance[key].inHour = defs.inHour; previewState.attendance[key].inMin = defs.inMin; previewState.attendance[key].inAmPm = defs.inAmPm;
+                previewState.attendance[key].outHour = defs.outHour; previewState.attendance[key].outMin = defs.outMin; previewState.attendance[key].outAmPm = defs.outAmPm;
             }
         }
 
@@ -1099,7 +1159,12 @@ window.openPreviewTime = (key, hField, mField, curH, curM) => {
     let cur = (curH && curM) ? `${curH}:${curM}` : '';
     openPicker('time', cur, (val) => {
         const [h, m] = val.split(':');
-        if (!previewState.attendance[key]) previewState.attendance[key] = { inHour: '01', inMin: '00', inAmPm: 'PM', outHour: '10', outMin: '00', outAmPm: 'PM', remarks: '' };
+
+        const parts = key.split('-');
+        const dateObj = new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
+        const defs = getDefaultTimes(dateObj);
+
+        if (!previewState.attendance[key]) previewState.attendance[key] = { ...defs, remarks: '' };
 
         previewState.attendance[key][hField] = h;
         previewState.attendance[key][mField] = m;
