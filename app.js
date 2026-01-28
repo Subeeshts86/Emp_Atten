@@ -16,7 +16,13 @@ const defaultState = {
     savedSheets: []
 };
 
-let appState = JSON.parse(localStorage.getItem(STORE_KEY)) || defaultState;
+let appState;
+try {
+    appState = JSON.parse(localStorage.getItem(STORE_KEY));
+} catch (e) {
+    console.error('Corrupt State:', e);
+}
+appState = appState || defaultState;
 
 // Repair State
 ['retailers', 'locations', 'departments', 'designations'].forEach(key => {
@@ -265,7 +271,10 @@ function openPicker(type, currentVal, callback) {
 
     if (currentVal) {
         setTimeout(() => {
-            const found = Array.from(body.children).find(el => el.textContent === (options.find(o => o.value === currentVal)?.label || currentVal));
+            const found = Array.from(body.children).find(el => {
+                const opt = options.find(o => o.value === currentVal);
+                return el.textContent === (opt ? opt.label : currentVal);
+            });
             if (found) {
                 found.scrollIntoView({ block: 'center' });
                 setTimeout(updateActive, 50);
@@ -787,10 +796,16 @@ function handlePrint() {
 
 // --- Init ---
 document.addEventListener('DOMContentLoaded', () => {
-    initTheme();
-    updateAllDropdowns();
-    renderAttendanceGrid();
-    refreshIcons();
+    console.log('App Initializing...');
+    try {
+        initTheme();
+        updateAllDropdowns();
+        renderAttendanceGrid();
+        refreshIcons();
+    } catch (e) {
+        console.error('Core Init Failed:', e);
+        document.getElementById('attendance-list').innerHTML = '<div style="padding: 2rem; color: red;">Error Loading App: ' + e.message + '</div>';
+    }
 
     const saveBtn = document.getElementById('saveBtn');
     if (saveBtn) saveBtn.onclick = () => handleSavePDF();
