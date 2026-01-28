@@ -327,17 +327,8 @@ function renderAttendanceGrid() {
         const dayName = dateObj.toLocaleDateString('en-US', { weekday: 'short' });
         const isFri = dayName === 'Fri';
 
-        // Defaults
-        // Normal: 01:00 PM - 10:00 PM
-        // Ramadan: 07:00 PM - 01:00 AM
-        let defInH = '01', defInAmPm = 'PM', defOutH = '10', defOutAmPm = 'PM';
-
-        if (isRamadan(dateObj)) {
-            defInH = '07';
-            defOutH = '01'; defOutAmPm = 'AM';
-        }
-
-        let d = s.attendance[dateKey] || { inHour: defInH, inMin: '00', inAmPm: defInAmPm, outHour: defOutH, outMin: '00', outAmPm: defOutAmPm, remarks: '' };
+        const defs = getDefaultTimes(dateObj);
+        let d = s.attendance[dateKey] || { ...defs, remarks: '' };
 
         if (!s.attendance[dateKey]) d = { ...d };
 
@@ -384,14 +375,10 @@ function updateAttendance(key, field, val) {
             // Check Ramadan again
             const parts = key.split('-');
             const dateObj = new Date(parts[0], parseInt(parts[1]) - 1, parts[2]);
+            const defs = getDefaultTimes(dateObj);
 
-            if (isRamadan(dateObj)) {
-                d.inHour = '07'; d.inMin = '00'; d.inAmPm = 'PM';
-                d.outHour = '01'; d.outMin = '00'; d.outAmPm = 'AM';
-            } else {
-                d.inHour = '01'; d.inMin = '00'; d.inAmPm = 'PM';
-                d.outHour = '10'; d.outMin = '00'; d.outAmPm = 'PM';
-            }
+            d.inHour = defs.inHour; d.inMin = defs.inMin; d.inAmPm = defs.inAmPm;
+            d.outHour = defs.outHour; d.outMin = defs.outMin; d.outAmPm = defs.outAmPm;
         }
     }
 
@@ -466,6 +453,7 @@ function validateRequiredFields() {
 
     if (!s.empName || !s.empName.trim()) missing.push('Employee Name');
     if (!s.civilId || !s.civilId.trim()) missing.push('Civil ID');
+    else if (!/^\d{12}$/.test(s.civilId.trim())) missing.push('Civil ID (must be 12 digits)');
     if (!s.retailer || !s.retailer.trim()) missing.push('Retailer');
     if (!s.location || !s.location.trim()) missing.push('Location');
     if (!s.department || !s.department.trim()) missing.push('Department');
