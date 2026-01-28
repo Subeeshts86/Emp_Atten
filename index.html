@@ -5,8 +5,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Employee Attendance</title>
+    <meta name="description"
+        content="Professional daily staff attendance tracking and reporting application. Manage retailers, locations, departments, and generate PDF timesheets.">
 
-    <link rel="stylesheet" href="style.css?v=3.0.60">
+    <link rel="stylesheet" href="style.css?v=3.0.68">
     <link rel="manifest" href="manifest.json">
 
     <meta name="apple-mobile-web-app-capable" content="yes">
@@ -255,6 +257,9 @@
                 <div class="picker-highlight"></div>
                 <div id="picker-body" class="picker-body"></div>
             </div>
+            <div class="picker-footer">
+                <button id="pickerConfirmBtn" class="btn btn-primary"><i data-lucide="check"></i> Confirm</button>
+            </div>
         </div>
     </div>
 
@@ -272,10 +277,7 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf-autotable/3.5.31/jspdf.plugin.autotable.min.js"></script>
 
-    <script src="app.js?v=3.0.60"></script>
-    </script>
-    </script>
-
+    <script src="app.js?v=3.0.68"></script>
     <script>
         if (window.lucide) lucide.createIcons();
         if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(console.error);

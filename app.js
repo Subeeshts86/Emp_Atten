@@ -60,10 +60,14 @@ function updateThemeIcon() {
 }
 
 // --- Modals ---
-function showMessage(title, text, type = 'info') {
+// --- Modals ---
+function showMessage(title, text, type = 'info', allowHtml = false) {
     const modal = document.getElementById('message-modal');
     document.getElementById('message-title').textContent = title;
-    document.getElementById('message-text').textContent = text;
+
+    const textEl = document.getElementById('message-text');
+    if (allowHtml) textEl.innerHTML = text;
+    else textEl.textContent = text;
 
     const iconMap = { info: 'info', success: 'check-circle', warning: 'alert-triangle', error: 'x-circle' };
     const iconEl = document.getElementById('message-icon');
@@ -100,6 +104,10 @@ function closeMessage() {
 // --- UI Logic ---
 const MONTH_NAMES = ["January", "February", "March", "April", "May", "June", "July", "August", "September", "October", "November", "December"];
 
+function getDaysInMonth(year, month) {
+    return new Date(year, parseInt(month) + 1, 0).getDate();
+}
+
 function updateAllDropdowns() {
     const s = appState.currentSheet;
     document.getElementById('retailerText').textContent = s.retailer || 'Select Retailer';
@@ -115,14 +123,41 @@ function updateAllDropdowns() {
     renderSettingsList('desigList', appState.settings.designations, 'designations');
 }
 
+// --- Audio ---
+let audioCtx = null;
+function playTick() {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
+    const osc = audioCtx.createOscillator();
+    const gainNode = audioCtx.createGain();
+
+    osc.connect(gainNode);
+    gainNode.connect(audioCtx.destination);
+
+    // "Tik" Sound Synthesis
+    osc.type = 'triangle';
+    osc.frequency.setValueAtTime(600, audioCtx.currentTime);
+
+    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+    gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
+
+    osc.start(audioCtx.currentTime);
+    osc.stop(audioCtx.currentTime + 0.03);
+}
+
 // --- Picker ---
 function openPicker(type, currentVal, callback) {
+    if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+
     const modal = document.getElementById('picker-modal');
     const body = document.getElementById('picker-body');
     const title = document.getElementById('picker-title');
 
     body.innerHTML = '';
     modal.classList.remove('hidden');
+    document.body.classList.add('no-scroll');
 
     let options = [];
     if (type === 'retailer') options = appState.settings.retailers.map(x => ({ label: x, value: x }));
@@ -145,38 +180,61 @@ function openPicker(type, currentVal, callback) {
 
     title.textContent = 'Select ' + type;
 
+    let selectedValue = currentVal || (options[0] ? options[0].value : '');
+
     options.forEach(opt => {
         const div = document.createElement('div');
         div.className = 'picker-option';
         div.textContent = opt.label;
+        div.dataset.value = opt.value;
         div.onclick = () => {
-            // Scroll to adjust visual active state then select
+            // Just scroll to item on click
             const index = Array.from(body.children).indexOf(div);
             body.scrollTop = index * 50;
-            setTimeout(() => { callback(opt.value); modal.classList.add('hidden'); }, 150);
         };
         body.appendChild(div);
     });
 
     // Scroll Logic for Active State
+    let lastIndex = -1;
     const updateActive = () => {
-        const center = body.scrollTop + 125; // 250px height / 2
-        const index = Math.floor(center / 50) - 2; // Subtract padding offest (100px = 2 items)
+        const center = body.scrollTop + 130;
+        const index = Math.floor(center / 50) - 2;
+
+        if (index !== lastIndex) {
+            if (lastIndex !== -1) playTick();
+            lastIndex = index;
+        }
 
         Array.from(body.children).forEach((child, i) => {
-            if (i === index) child.classList.add('picker-option-active');
-            else child.classList.remove('picker-option-active');
+            if (i === index) {
+                child.classList.add('picker-option-active');
+                selectedValue = child.dataset.value;
+            } else {
+                child.classList.remove('picker-option-active');
+            }
         });
     };
 
     body.onscroll = updateActive;
+
+    // Confirm Button Logic
+    const confirmBtn = document.getElementById('pickerConfirmBtn');
+    // Remove old listener to avoid duplicates
+    const newBtn = confirmBtn.cloneNode(true);
+    confirmBtn.parentNode.replaceChild(newBtn, confirmBtn);
+
+    newBtn.onclick = () => {
+        callback(selectedValue);
+        modal.classList.add('hidden');
+        document.body.classList.remove('no-scroll');
+    };
 
     if (currentVal) {
         setTimeout(() => {
             const found = Array.from(body.children).find(el => el.textContent === (options.find(o => o.value === currentVal)?.label || currentVal));
             if (found) {
                 found.scrollIntoView({ block: 'center' });
-                // Force update after scroll
                 setTimeout(updateActive, 50);
             } else {
                 updateActive();
@@ -219,7 +277,7 @@ function renderAttendanceGrid() {
     const container = document.getElementById('attendance-list');
     container.innerHTML = '';
     const s = appState.currentSheet;
-    const days = new Date(s.year, parseInt(s.month) + 1, 0).getDate();
+    const days = getDaysInMonth(s.year, s.month);
 
     for (let i = 1; i <= days; i++) {
         const dateKey = `${s.year}-${String(parseInt(s.month) + 1).padStart(2, '0')}-${String(i).padStart(2, '0')}`;
@@ -310,7 +368,13 @@ function setupAddSetting(btnId, inpId, key) {
     const add = () => {
         const val = inp.value.trim();
         if (!val) return inp.focus();
-        const clean = val.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        let clean;
+        // Special logic for Designations: <= 3 chars -> Uppercase (e.g. HR, VM, CEO)
+        if (key === 'designations' && val.length <= 3) {
+            clean = val.toUpperCase();
+        } else {
+            clean = val.toLowerCase().replace(/\b\w/g, c => c.toUpperCase());
+        }
         if (appState.settings[key].includes(clean)) return showMessage('Error', 'Exists already', 'warning');
         appState.settings[key].push(clean);
         inp.value = '';
@@ -334,6 +398,28 @@ function resetToDefaults(confirm) {
     else run();
 }
 
+// --- Validation ---
+function validateRequiredFields() {
+    const s = appState.currentSheet;
+    const missing = [];
+
+    if (!s.empName || !s.empName.trim()) missing.push('Employee Name');
+    if (!s.civilId || !s.civilId.trim()) missing.push('Civil ID');
+    if (!s.retailer || !s.retailer.trim()) missing.push('Retailer');
+    if (!s.location || !s.location.trim()) missing.push('Location');
+    if (!s.department || !s.department.trim()) missing.push('Department');
+    if (!s.designation || !s.designation.trim()) missing.push('Designation');
+
+    if (missing.length > 0) {
+        let msg = '<ul style="text-align: left; margin-top: 0.5rem; padding-left: 1.5rem;">';
+        missing.forEach(field => msg += `<li>${field}</li>`);
+        msg += '</ul>';
+        showMessage('Missing Information', `Please fill the following fields:<br>${msg}`, 'warning', true);
+        return false;
+    }
+    return true;
+}
+
 // --- 1. HANDLE SAVE PDF (Standalone) ---
 // Accepts optional 'data' to print specific saved sheet.
 // If data is passed (and is valid), it's a DIRECT DOWNLOAD (no save to history).
@@ -341,6 +427,10 @@ function resetToDefaults(confirm) {
 function handleSavePDF(optionalData = null) {
     // Check if optionalData is a real data object (has 'attendance'), not an Event
     const isDirect = optionalData && optionalData.attendance;
+
+    // Validate if creating new save (not downloading history)
+    if (!isDirect && !validateRequiredFields()) return;
+
     const s = isDirect ? optionalData : appState.currentSheet;
 
     // IF Save from Main Tab (not direct download) -> Save to History
@@ -358,7 +448,7 @@ function handleSavePDF(optionalData = null) {
     try {
         const { jsPDF } = window.jspdf;
         const doc = new jsPDF({ format: 'a4', unit: 'pt' });
-        const days = new Date(s.year, parseInt(s.month) + 1, 0).getDate();
+        const days = getDaysInMonth(s.year, s.month);
 
         // --- HEADER ---
         // --- HEADER ---
@@ -537,8 +627,10 @@ function saveToHistory(current) {
 
 // --- 2. HANDLE PRINT (Standalone) ---
 function handlePrint() {
+    if (!validateRequiredFields()) return;
+
     const s = appState.currentSheet;
-    const days = new Date(s.year, parseInt(s.month) + 1, 0).getDate();
+    const days = getDaysInMonth(s.year, s.month);
     const workLoc = [s.retailer, s.location].filter(Boolean).join(' ');
 
     let rows = '';
@@ -654,7 +746,10 @@ document.addEventListener('DOMContentLoaded', () => {
 
     document.getElementById('clearBtn').onclick = () => resetToDefaults(true);
     document.getElementById('themeToggle').onclick = toggleTheme;
-    document.getElementById('closePickerBtn').onclick = () => document.getElementById('picker-modal').classList.add('hidden');
+    document.getElementById('closePickerBtn').onclick = () => {
+        document.getElementById('picker-modal').classList.add('hidden');
+        document.body.classList.remove('no-scroll');
+    };
 
     ['empName', 'civilId'].forEach(id => {
         const el = document.getElementById(id);
@@ -677,6 +772,9 @@ document.addEventListener('DOMContentLoaded', () => {
         };
     });
 
+    setupAddSetting('addRetailerBtn', 'newRetailer', 'retailers');
+    setupAddSetting('addLocationBtn', 'newLocation', 'locations');
+    setupAddSetting('addDeptBtn', 'newDept', 'departments');
     setupAddSetting('addDesigBtn', 'newDesig', 'designations');
 
     let startY = 0, ptr = document.getElementById('ptr-indicator');
