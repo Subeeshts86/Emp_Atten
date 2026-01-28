@@ -170,7 +170,7 @@ function playTick() {
     osc.type = 'triangle';
     osc.frequency.setValueAtTime(600, audioCtx.currentTime);
 
-    gainNode.gain.setValueAtTime(0.05, audioCtx.currentTime);
+    gainNode.gain.setValueAtTime(0.15, audioCtx.currentTime);
     gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.03);
 
     osc.start(audioCtx.currentTime);
